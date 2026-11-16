@@ -7,7 +7,9 @@
 [![hacs][hacsbadge]][hacs]
 ![Project Maintenance][maintenance-shield]
 
-Fuse several Home Assistant sensors that measure the same quantity — i.e. three smart rings reporting heart rate, or two thermometers in one room — into a single drift-corrected estimate. Sensor Fusion watches the input sensors as their values arrive, learns each sensor's slowly drifting bias, and keeps the estimate honest even when one sensor wanders or drops off for hours.
+Fuse several Home Assistant sensors that measure the same quantity — i.e. three smart rings reporting heart rate, or two thermometers in one room — into a single value. Sensor Fusion watches the input sensors as their values arrive, learns each sensor's slowly drifting bias, and keeps the estimate honest even when one sensor wanders or drops off for hours.
+
+This is better than just averaging sensor values in many cases. For example say your sensors update at different rates; a slow sensor makes the average slower to respond. Or say a thermometer goes offline for an hour then revives; the average jumps around at those moments even though the room temperature was unchanged.
 
 Internally, this is done with the magic of [Kalman filters](https://en.wikipedia.org/wiki/Kalman_filter).
 

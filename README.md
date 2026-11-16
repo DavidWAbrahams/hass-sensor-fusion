@@ -13,10 +13,9 @@ Internally, this is done with the magic of [Kalman filters](https://en.wikipedia
 
 ## ✨ Features
 
-- **Event-driven, not polled**: every fused value comes from the input sensors' own state-change events, projected through a Kalman filter with the exact elapsed time between reports
 - **Drift correction**: learns each sensor's bias over time and removes it from the estimate, with a configurable adaptation horizon
 - **No popularity contest**: a sensor that reports every minute does not drown out one that reports every 30 minutes — measurement noise is scaled by each sensor's update rate
-- **Coasts through outages**: an unavailable or non-numeric sensor is skipped while the estimate keeps its trend; the bias of each source stays visible as a diagnostic entity
+- **Coasts through outages**: an unavailable sensor is skipped while the estimate keeps its trend
 - **Survives restarts**: the learned filter state is persisted and restored across restarts, reloads and options changes
 - **Multiple instances**: set up one fusion per quantity — heart rate here, bedroom temperature there
 - **Easy Setup**: configured entirely through the UI, no YAML

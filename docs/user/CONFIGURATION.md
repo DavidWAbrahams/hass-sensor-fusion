@@ -1,236 +1,83 @@
 # Configuration Reference
 
-This document describes all configuration options and settings available in the Integration Blueprint custom integration.
+This document describes all configuration options and settings available in the Sensor Fusion custom integration.
+
+Sensor Fusion is configured entirely through the Home Assistant UI. There is no YAML configuration.
 
 ## Integration Configuration
 
-### Initial Setup Options
+### Initial Setup (Config Flow)
 
-These options are configured during initial setup via the Home Assistant UI.
+These options are set when you add an instance under **Settings** → **Devices & Services** → **+ Add Integration** → "Sensor Fusion".
 
-#### Connection Settings
+| Option                    | Type        | Required | Default         | Range       | Description                                                                                                                                   |
+| ------------------------- | ----------- | -------- | --------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Name**                  | string      | No       | `Sensor Fusion` | —           | Names this fusion instance and its device. Leave empty for the default.                                                                       |
+| **Input sensors**         | sensor list | Yes      | —               | at least 2  | The sensors to fuse. They must share the same unit of measurement and device class (if set).                                                  |
+| **Signal volatility**     | number      | No       | `2.0`           | 0.01 – 1000 | How much the measured quantity moves between sensor updates, in units per √minute. Higher makes the estimate follow changes faster.           |
+| **Bias adaptation**       | number      | No       | `480` (minutes) | 1 – 43200   | Minutes over which a sensor's bias is expected to drift by one maximum-bias step. Lower adapts faster, higher trusts the learned bias longer. |
+| **Maximum expected bias** | number      | No       | `10`            | 0.01 – 1000 | The largest deviation from the true value a single sensor is expected to develop, in the measurement's unit.                                  |
 
-| Option      | Type    | Required | Default | Description                                  |
-| ----------- | ------- | -------- | ------- | -------------------------------------------- |
-| **Host**    | string  | Yes      | -       | Hostname or IP address of the device/service |
-| **Port**    | integer | No       | 8080    | Connection port                              |
-| **API Key** | string  | Yes\*    | -       | Authentication key or token                  |
-| **Use SSL** | boolean | No       | false   | Enable HTTPS connection                      |
+### Validation
 
-\*Required if the device/service requires authentication.
+The form rejects a selection with:
 
-#### Update Settings
-
-| Option   | Type   | Required | Default  | Description                                |
-| -------- | ------ | -------- | -------- | ------------------------------------------ |
-| **Name** | string | No       | "Device" | Friendly name for the integration instance |
-
-### Options Flow (Reconfiguration)
-
-After initial setup, you can modify settings:
-
-1. Go to **Settings** → **Devices & Services**
-2. Find "Integration Blueprint"
-3. Click **Configure**
-4. Modify settings
-5. Click **Submit**
-
-**Available options:**
-
-- Filter replacement threshold: the remaining filter life, in percent, below which the filter replacement warning turns on
-- Name/identifier
-- Connection timeout
-- Additional features (device-specific)
-
-## Entity Configuration
-
-### Entity Customization
-
-Customize entities via the UI or `configuration.yaml`:
-
-#### Via Home Assistant UI
-
-1. Go to **Settings** → **Devices & Services** → **Entities**
-2. Find and click the entity
-3. Click the settings icon
-4. Modify:
-   - Entity ID
-   - Name
-   - Icon
-   - Device class (for applicable entities)
-   - Area assignment
-
-#### Via configuration.yaml
-
-```yaml
-homeassistant:
-  customize:
-    sensor.device_name_sensor:
-      friendly_name: "Custom Sensor Name"
-      icon: mdi:custom-icon
-      unit_of_measurement: "units"
-```
-
-### Disabling Entities
-
-If you don't need certain entities:
-
-1. Go to **Settings** → **Devices & Services** → **Entities**
-2. Find the entity
-3. Click it, then click **Settings** icon
-4. Toggle **Enable entity** off
-
-Disabled entities won't update or consume resources.
-
-## Services
-
-The integration provides the following services:
-
-### `ha_integration_domain.refresh_data`
-
-Fetch the current device state immediately instead of waiting for the next poll.
-
-**Service data:**
-
-| Parameter         | Type   | Required | Description                        |
-| ----------------- | ------ | -------- | ---------------------------------- |
-| `config_entry_id` | string | Yes      | The configuration entry to refresh |
-
-The action returns `refreshed_at`, `success` and `value_count`, so an automation can react to
-whether the refresh actually produced data.
-
-**Example:**
-
-```yaml
-action: ha_integration_domain.refresh_data
-data:
-  config_entry_id: 01JG3T2Q6Z9K4V8P0N5R7X2M1A
-```
-
-### Using Services in Automations
-
-```yaml
-automation:
-  - alias: "Refresh at sunset"
-    trigger:
-      - trigger: sun
-        event: sunset
-    action:
-      - action: ha_integration_domain.refresh_data
-        data:
-          config_entry_id: 01JG3T2Q6Z9K4V8P0N5R7X2M1A
-```
-
-## Advanced Configuration
+- **"Select at least two different sensors to fuse."** — fewer than two distinct sensors were chosen.
+- **"The selected sensors must share the same unit of measurement and device class."** — mixing, say, `°C` and `°F` or a heart-rate and a temperature sensor is refused up front.
 
 ### Multiple Instances
 
-You can add multiple instances of this integration for different devices:
+Each setup creates an independent instance with its own filter, storage and device. Create one per quantity you want to fuse (heart rate, bedroom temperature, …). An input sensor may appear in more than one instance.
 
-1. Go to **Settings** → **Devices & Services**
-2. Click **+ Add Integration**
-3. Search for "Integration Blueprint"
-4. Configure with different connection details
+### Options (Configure)
 
-Each instance creates separate entities with unique entity IDs.
+After setup, **Settings** → **Devices & Services** → your instance → **Configure** shows the same form minus the name:
 
-### Network Configuration
+- **Input sensors** — add or remove sensors. The filter resizes: a new sensor starts at zero bias with full prior uncertainty and learns from here; a removed sensor is forgotten. The estimate continues across the change, and the entry reloads so entities follow.
+- **Signal volatility / Bias adaptation / Maximum expected bias** — retuning is applied to the live filter without discarding anything it learned.
 
-If the device is on a different network or behind a firewall:
+The name is fixed after setup; rename the device via the device's settings if needed.
 
-- Ensure ports are open (default: 8080)
-- Configure port forwarding if needed
-- Consider VPN for remote access
-- Some devices may require static IP addresses
+## Entities
 
-### Polling Behavior
+Each instance provides:
 
-The integration polls the device at a fixed interval chosen to suit it; the interval is not configurable. To fetch
-the current state sooner, call the `refresh_data` action, or use Home Assistant's
-[polling options](https://www.home-assistant.io/common-tasks/general/#defining-a-custom-polling-interval) to disable
-polling and drive updates from an automation.
+| Entity              | Platform | Category   | Description                                                                                                                                      |
+| ------------------- | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Fused value**     | sensor   | (normal)   | The Kalman estimate. Unit and device class are inherited from the input sensors when they share them. State class `measurement`, two decimals.   |
+| **Bias \<sensor\>** | sensor   | diagnostic | One per input sensor: the deviation the filter has learned for that sensor. Biases sum to zero, so they are relative to the group, not absolute. |
+| **Reset fusion**    | button   | (normal)   | Discards the learned state and re-seeds from the input sensors' current values.                                                                  |
 
-## Diagnostic Data
+Bias entities and their availability: a bias entity is `unavailable` exactly while its input sensor is; the fused value is unaffected and coasts.
 
-The integration provides diagnostic data for troubleshooting:
+## Behaviour Reference
 
-1. Go to **Settings** → **Devices & Services**
-2. Find "Integration Blueprint"
-3. Click on the device
-4. Click **Download Diagnostics**
+- **Event-driven**: the filter runs one cycle per input-sensor state change. There is no update interval; nothing is polled.
+- **Coasting**: while no input reports, the estimate holds and extrapolates along its learned trend, with uncertainty growing. A trend left over from before an outage is kept.
+- **Update-rate fairness**: measurement noise is inflated for sensors that report more often than the group median, so a chatty sensor cannot dominate a slow one.
+- **Persistence**: the filter state is saved at most every five minutes (and on shutdown/reload) under **Settings** → system storage; it is restored on restart and resized on options changes.
+- **Identifiability**: because the biases are constrained to sum to zero, an offset shared by _every_ input is absorbed into the fused value rather than shown as bias. This is expected: with no unbiased reference there is nothing to measure the common offset against.
 
-Diagnostic data includes:
+## Troubleshooting
 
-- Connection status
-- Last update timestamp
-- API response data
-- Entity states
-- Error history
+| Symptom                                        | Likely cause and fix                                                                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Fused value is `unknown`                       | Fewer than two inputs currently hold numeric readings. Check the input sensors.                                               |
+| Estimate lags real changes                     | Raise **Signal volatility**.                                                                                                  |
+| Estimate is twitchy                            | Lower **Signal volatility**, and check whether one input is noisy — its bias entity shows if the filter is fighting it.       |
+| A sensor's bias sticks at the maximum          | Raise **Maximum expected bias**, or check that sensor — it may genuinely be out of line.                                      |
+| A new sensor drags the estimate                | Normal for the first while: it starts at zero bias and must be learned. Lower the **Bias adaptation** minutes to speed it up. |
+| After swapping hardware the old offset lingers | Press **Reset fusion** to discard learned state.                                                                              |
 
-**Privacy note:** Diagnostic data may contain sensitive information. Review before sharing.
-
-## Blueprints
-
-The integration works with Home Assistant Blueprints for reusable automations:
-
-### Example Blueprint
+### Debug Logging
 
 ```yaml
-blueprint:
-  name: Integration Blueprint Alert
-  description: Send notification when sensor exceeds threshold
-  domain: automation
-  input:
-    sensor_entity:
-      name: Sensor
-      selector:
-        entity:
-          domain: sensor
-          integration: ha_integration_domain
-    threshold:
-      name: Threshold
-      selector:
-        number:
-          min: 0
-          max: 100
-
-trigger:
-  - trigger: numeric_state
-    entity_id: !input sensor_entity
-    above: !input threshold
-
-action:
-  - action: notify.notify
-    data:
-      message: "Sensor exceeded threshold!"
+logger:
+  default: info
+  logs:
+    custom_components.sensor_fusion: debug
 ```
 
-## Configuration Examples
+### Diagnostics
 
-See [EXAMPLES.md](./EXAMPLES.md) for complete automation and dashboard examples.
-
-## Troubleshooting Configuration
-
-### Config Entry Fails to Load
-
-If the integration fails to load after configuration:
-
-1. Check Home Assistant logs for errors
-2. Verify connection details are correct
-3. Test connectivity from Home Assistant to the device
-4. Try removing and re-adding the integration
-
-### Options Don't Save
-
-If configuration changes aren't persisted:
-
-1. Check for validation errors in the UI
-2. Ensure values are within allowed ranges
-3. Review logs for detailed error messages
-4. Try restarting Home Assistant
-
-## Related Documentation
-
-- [Getting Started](./GETTING_STARTED.md) - Installation and initial setup
-- [Examples](./EXAMPLES.md) - Automation and dashboard examples
-- [GitHub Issues](https://github.com/jpawlowski/ha-integration-blueprint/issues) - Report problems
+**Settings** → **Devices & Services** → your instance → **⋯** → **Download diagnostics** includes the filter state (fused value, biases, per-sensor timing and noise statistics, last update success). The instance name and config entry data are redacted automatically.

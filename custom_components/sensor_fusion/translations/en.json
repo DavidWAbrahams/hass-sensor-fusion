@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "name": "Name",
+          "sensors": "Input sensors",
+          "volatility": "Signal volatility",
+          "bias_horizon_minutes": "Bias adaptation horizon",
+          "max_bias": "Maximum expected bias"
+        },
+        "data_description": {
+          "name": "Leaving this empty names the instance \"Sensor Fusion\".",
+          "sensors": "Pick at least two sensors measuring the same quantity. Sensors that are briefly unavailable are skipped while the estimate coasts.",
+          "volatility": "How much the measured quantity moves between sensor updates, in units per square root of a minute. Raise it for fast-moving signals, lower it for steady ones.",
+          "bias_horizon_minutes": "Minutes over which a sensor's bias is expected to drift by one maximum-bias step. Lower adapts faster, higher trusts the learned bias longer.",
+          "max_bias": "The largest deviation from the true value a single sensor is expected to develop, in the measurement's unit."
+        },
+        "description": "Fuse redundant sensors into one drift-corrected estimate. See the [documentation]({documentation_url}) for tuning advice."
+      }
+    },
+    "error": {
+      "not_enough_sensors": "Select at least two different sensors to fuse.",
+      "mismatched_sources": "The selected sensors must share the same unit of measurement and device class."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "sensors": "Input sensors",
+          "volatility": "Signal volatility",
+          "bias_horizon_minutes": "Bias adaptation horizon",
+          "max_bias": "Maximum expected bias"
+        },
+        "data_description": {
+          "sensors": "Added sensors start at zero bias and learn from here; removed sensors are forgotten. The estimate continues seamlessly across the change.",
+          "volatility": "How much the measured quantity moves between sensor updates, in units per square root of a minute. Raise it for fast-moving signals, lower it for steady ones.",
+          "bias_horizon_minutes": "Minutes over which a sensor's bias is expected to drift by one maximum-bias step. Lower adapts faster, higher trusts the learned bias longer.",
+          "max_bias": "The largest deviation from the true value a single sensor is expected to develop, in the measurement's unit."
+        }
+      }
+    },
+    "error": {
+      "not_enough_sensors": "Select at least two different sensors to fuse.",
+      "mismatched_sources": "The selected sensors must share the same unit of measurement and device class."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "fused_value": {
+        "name": "Fused value"
+      },
+      "sensor_bias": {
+        "name": "Bias {source}"
+      }
+    },
+    "button": {
+      "reset_fusion": {
+        "name": "Reset fusion"
+      }
+    }
+  }
+}

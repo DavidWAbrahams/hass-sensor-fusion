@@ -1,0 +1,16 @@
+{
+  "domain": "sensor_fusion",
+  "name": "Sensor Fusion",
+  "codeowners": [
+    "@DavidWAbrahams"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/DavidWAbrahams/hass-sensor-fusion",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/DavidWAbrahams/hass-sensor-fusion/issues",
+  "requirements": [
+    "numpy==2.3.2"
+  ],
+  "version": "0.1.0"
+}

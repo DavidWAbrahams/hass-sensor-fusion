@@ -1,19 +1,23 @@
-# Getting Started with Integration Blueprint
+# Getting Started with Sensor Fusion
 
-This guide will help you install and set up the Integration Blueprint custom integration for Home Assistant.
+This guide will help you install and set up the Sensor Fusion custom integration for Home Assistant.
+
+Sensor Fusion combines two or more Home Assistant sensors that measure the same quantity — for example four smart rings reporting heart rate, or two thermometers in one room — into a single estimate that corrects each sensor's slow drift as it learns it.
 
 ## Prerequisites
 
 - Home Assistant 2026.10.0 or newer
-- Network connectivity to [external service/device]
+- At least two existing sensor entities that measure the same quantity in the same unit (for example `sensor.ring_left_heart_rate` and `sensor.ring_right_heart_rate`)
+
+No device, account or network connection is needed beyond what already provides those sensors.
 
 ## Installation
 
 ### Via the Marketplace (Home Assistant 2026.11 and newer, recommended)
 
 1. Go to **Settings** → **Marketplace**
-2. Add this repository as a custom repository: `https://github.com/jpawlowski/ha-integration-blueprint`, category "Integration". The Marketplace asks you to connect a GitHub account for repositories outside its catalog.
-3. Open "Integration Blueprint" and click "Download"
+2. Add this repository as a custom repository: `https://github.com/DavidWAbrahams/hass-sensor-fusion`, category "Integration". The Marketplace asks you to connect a GitHub account for repositories outside its catalog.
+3. Open "Sensor Fusion" and click "Download"
 
 A restart is not needed for the first installation; updates and removal ask for one.
 
@@ -22,17 +26,17 @@ A restart is not needed for the first installation; updates and removal ask for 
 1. Open HACS in your Home Assistant instance
 2. Click the three dots in the top right corner
 3. Select "Custom repositories"
-4. Add this repository URL: `https://github.com/jpawlowski/ha-integration-blueprint`
+4. Add this repository URL: `https://github.com/DavidWAbrahams/hass-sensor-fusion`
 5. Set category to "Integration"
 6. Click "Add"
-7. Find "Integration Blueprint" in the list and click "Download"
+7. Find "Sensor Fusion" in the list and click "Download"
 8. Restart Home Assistant
 
 ### Manual Installation
 
-1. Download the latest release from the [releases page](https://github.com/jpawlowski/ha-integration-blueprint/releases)
-2. Extract the `ha_integration_domain` folder from the archive
-3. Copy it to `custom_components/ha_integration_domain/` in your Home Assistant configuration directory
+1. Download the latest release from the [releases page](https://github.com/DavidWAbrahams/hass-sensor-fusion/releases)
+2. Extract the `sensor_fusion` folder from the archive
+3. Copy it to `custom_components/sensor_fusion/` in your Home Assistant configuration directory
 4. Restart Home Assistant
 
 ## Initial Setup
@@ -41,155 +45,38 @@ After installation, add the integration:
 
 1. Go to **Settings** → **Devices & Services**
 2. Click **+ Add Integration**
-3. Search for "Integration Blueprint"
-4. Follow the configuration steps:
+3. Search for "Sensor Fusion"
+4. Fill in the setup form:
 
-### Step 1: Connection Information
+   | Setting                   | Default          | What it means                                                                                                                 |
+   | ------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+   | **Name**                  | (empty)          | Names this fusion instance. Empty defaults to "Sensor Fusion".                                                                |
+   | **Input sensors**         | —                | Pick at least two sensors measuring the same quantity. All must share a unit of measurement.                                  |
+   | **Signal volatility**     | 2.0              | How much the quantity moves between sensor updates, in units per square root of a minute. Higher follows fast changes sooner. |
+   | **Bias adaptation**       | 480 (minutes)    | How quickly a sensor's learned bias may change. Lower adapts faster, higher trusts the learned bias longer.                   |
+   | **Maximum expected bias** | 10 (in the unit) | The largest deviation from the true value you expect a single sensor to develop.                                              |
 
-Enter the required connection details:
+5. Click **Submit**
 
-- **Host/IP Address:** The hostname or IP address of your device/service
-- **API Key/Token:** Your authentication credentials (if applicable)
-- **Port:** Connection port (default: 8080)
+The defaults suit slowly-measured quantities with slow drift, such as heart rate from a wearable. If the estimate feels too smooth for your signal, raise the volatility. Full details of each setting: [Configuration Reference](CONFIGURATION.md).
 
-Click **Submit** to test the connection.
+## What You Get
 
-### Step 2: Configuration Options
+The integration adds one device named after the instance, with:
 
-Configure optional settings:
-
-- **Name:** Friendly name for this integration instance
-
-Click **Submit** to complete setup.
-
-## What Gets Created
-
-After successful setup, the integration creates:
-
-### Devices
-
-- **Device Name:** Main device representing your connected service/hardware
-  - Model information
-  - Software version
-  - Configuration URL (link to device web interface)
-
-### Entities
-
-The following entities are automatically created:
-
-#### Sensors
-
-- `sensor.<device_name>_<sensor_name>` - Descriptive sensor measurements
-- More sensors as applicable to your setup
-
-#### Binary Sensors
-
-- `binary_sensor.<device_name>_<sensor_name>` - On/off status indicators
-
-#### Switches
-
-- `switch.<device_name>_<switch_name>` - Controllable on/off switches
-
-#### Other Platforms
-
-Additional entities may be created depending on your device capabilities.
+- **Fused value** — the estimate, in the unit of the input sensors
+- **Bias \<sensor name\>** — one per input sensor, hidden by default (diagnostic): how far that sensor currently reads from the group
+- **Reset fusion** — a button that discards everything the filter learned and re-seeds from the sensors' current values
 
 ## First Steps
 
-### Dashboard Cards
+1. Open the new device under **Settings** → **Devices & Services** and watch the **Fused value** — it should sit among the individual sensor readings and update as they do.
+2. After a few hours, expand the device's diagnostic entities. A sensor that consistently reads high shows a **positive** bias; the biases always sum to zero, so this tells you which sensor to trust less.
+3. Use the fused entity in dashboards and automations exactly like any other sensor.
+4. See [EXAMPLES.md](EXAMPLES.md) for automation ideas and tuning walkthroughs.
 
-Add entities to your dashboard:
+## Notes
 
-1. Go to your dashboard
-2. Click **Edit Dashboard** → **Add Card**
-3. Choose card type (e.g., "Entities", "Glance")
-4. Select entities from "Integration Blueprint"
-
-Example entities card:
-
-```yaml
-type: entities
-title: Integration Blueprint
-entities:
-  - sensor.device_name_sensor
-  - binary_sensor.device_name_connectivity
-  - switch.device_name_switch
-```
-
-### Automations
-
-Use the integration in automations:
-
-**Example - Trigger on sensor change:**
-
-```yaml
-automation:
-  - alias: "React to sensor value"
-    trigger:
-      - trigger: state
-        entity_id: sensor.device_name_sensor
-    action:
-      - action: notify.notify
-        data:
-          message: "Sensor changed to {{ trigger.to_state.state }}"
-```
-
-**Example - Control switch based on time:**
-
-```yaml
-automation:
-  - alias: "Turn on in morning"
-    trigger:
-      - trigger: time
-        at: "07:00:00"
-    action:
-      - action: switch.turn_on
-        target:
-          entity_id: switch.device_name_switch
-```
-
-## Troubleshooting
-
-### Connection Failed
-
-If setup fails with connection errors:
-
-1. Verify the host/IP address is correct and reachable
-2. Check that the API key/token is valid
-3. Ensure no firewall is blocking the connection
-4. Check Home Assistant logs for detailed error messages
-
-### Entities Not Updating
-
-If entities show "Unavailable" or don't update:
-
-1. Check that the device/service is online
-2. Verify API credentials haven't expired
-3. Review logs: **Settings** → **System** → **Logs**
-4. Try reloading the integration
-
-### Debug Logging
-
-Enable debug logging to troubleshoot issues:
-
-```yaml
-logger:
-  default: warning
-  logs:
-    custom_components.ha_integration_domain: debug
-```
-
-Add this to `configuration.yaml`, restart, and reproduce the issue. Check logs for detailed information.
-
-## Next Steps
-
-- See [CONFIGURATION.md](./CONFIGURATION.md) for detailed configuration options
-- See [EXAMPLES.md](./EXAMPLES.md) for more automation examples
-- Report issues at [GitHub Issues](https://github.com/jpawlowski/ha-integration-blueprint/issues)
-
-## Support
-
-For help and discussion:
-
-- [GitHub Discussions](https://github.com/jpawlowski/ha-integration-blueprint/discussions)
-- [Home Assistant Community Forum](https://community.home-assistant.io/)
+- A sensor that goes unavailable or reports non-numeric values is simply skipped; the estimate coasts on its trend until readings arrive.
+- You can create as many fusion instances as you like — one per quantity.
+- Everything the filter has learned is saved automatically and restored after restarts, reloads and options changes.

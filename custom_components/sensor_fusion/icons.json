@@ -1,0 +1,17 @@
+{
+  "entity": {
+    "sensor": {
+      "fused_value": {
+        "default": "mdi:chart-multiline"
+      },
+      "sensor_bias": {
+        "default": "mdi:scale-balance"
+      }
+    },
+    "button": {
+      "reset_fusion": {
+        "default": "mdi:restart"
+      }
+    }
+  }
+}

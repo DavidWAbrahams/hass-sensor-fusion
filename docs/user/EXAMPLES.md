@@ -1,159 +1,112 @@
-# Examples
+# Sensor Fusion Examples
 
-This page provides ready-to-use examples for automations, dashboards, and blueprints
-with the Integration Blueprint custom integration.
+Practical setups and automation ideas for Sensor Fusion.
 
-Replace entity IDs like `sensor.device_name_*` with your actual entity IDs after
-setting up the integration.
+## Fusing Four Smart Rings' Heart Rate
 
-## Automations
+The motivating case: four rings each report a heart rate every few minutes, each drifting a little differently over days.
 
-### Notify when a sensor exceeds a threshold
+1. Set up a Sensor Fusion instance named `Rings` with all four `sensor.*_heart_rate` entities.
+2. Keep the defaults (volatility 2.0, bias adaptation 480 min, max bias 10 bpm) for a first week.
+3. Watch the bias entities: after a day or two, a consistently-high ring shows a positive bias and the fused value is no longer dragged by it.
 
-```yaml
-automation:
-  - alias: "Alert when sensor is high"
-    trigger:
-      - trigger: numeric_state
-        entity_id: sensor.device_name_air_quality
-        above: 100
-    action:
-      - action: notify.notify
-        data:
-          title: "Air quality alert"
-          message: "Sensor value exceeded 100!"
-```
+The fused sensor works with anything a heart-rate sensor works with — cards, thresholds, and Home Assistant's own health-related automations.
 
-### Turn on a switch when connectivity is lost
-
-```yaml
-automation:
-  - alias: "React to connectivity loss"
-    trigger:
-      - trigger: state
-        entity_id: binary_sensor.device_name_connectivity
-        to: "off"
-        for:
-          minutes: 5
-    action:
-      - action: switch.turn_off
-        target:
-          entity_id: switch.device_name_switch
-```
-
-### Call a service action on schedule
-
-```yaml
-automation:
-  - alias: "Refresh the data every morning"
-    trigger:
-      - trigger: time
-        at: "03:00:00"
-    action:
-      - action: ha_integration_domain.refresh_data
-        data:
-          config_entry_id: 01JG3T2Q6Z9K4V8P0N5R7X2M1A
-```
-
-### Use a blueprint for threshold alerts
-
-Save this as a blueprint file and import it in Home Assistant:
-
-```yaml
-blueprint:
-  name: Integration Blueprint — Threshold Alert
-  description: Send a notification when a sensor exceeds a configurable threshold.
-  domain: automation
-  input:
-    sensor_entity:
-      name: Sensor
-      selector:
-        entity:
-          domain: sensor
-          integration: ha_integration_domain
-    threshold:
-      name: Threshold value
-      selector:
-        number:
-          min: 0
-          max: 1000
-    notify_target:
-      name: Notification service
-      default: notify.notify
-      selector:
-        text:
-
-trigger:
-  - trigger: numeric_state
-    entity_id: !input sensor_entity
-    above: !input threshold
-
-action:
-  - action: !input notify_target
-    data:
-      message: >-
-        {{ state_attr(trigger.entity_id, 'friendly_name') }}
-        exceeded {{ threshold }} (current value: {{ trigger.to_state.state }}).
-```
-
-## Dashboard Cards
-
-### Sensor value card
+### Dashboard Card
 
 ```yaml
 type: sensor
-entity: sensor.device_name_air_quality
-name: Air Quality
+entity: sensor.rings_fused_value
+name: Heart rate (fused)
 graph: line
+detail: 2
 ```
 
-### Device summary — entities card
+## Alert on a Diverging Sensor
+
+Use the bias entities as a calibration watchdog — a bias that runs away usually means a sensor needs attention (worn loosely, low battery, needs cleaning):
 
 ```yaml
-type: entities
-title: My Device
-entities:
-  - entity: sensor.device_name_air_quality
-    name: Air Quality
-  - entity: binary_sensor.device_name_connectivity
-    name: Connected
-  - entity: binary_sensor.device_name_filter
-    name: Filter Status
-  - entity: switch.device_name_switch
-    name: Power
-  - entity: select.device_name_fan_speed
-    name: Fan Speed
-  - entity: number.device_name_threshold
-    name: Threshold
+automation:
+  - alias: "Ring sensor drifting"
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.rings_bias_ring_alpha
+        above: 6
+        for: "01:00:00"
+    actions:
+      - action: notify.phone
+        data:
+          message: "Ring Alpha reads 6+ bpm off the fused value for an hour — check the fit."
 ```
 
-### Status badge — multiple entities
+(Bias entity friendly names are `Bias <sensor name>`; use the entity picker to find the exact entity ID.)
+
+## Bedroom Temperature From Two Thermometers
+
+Two temperature sensors rarely report at once and each has its own offset from placement (in sunlight, near the window):
+
+- Fuse them into `sensor.bedroom_temperature`.
+- Lower **Signal volatility** to `0.1` °C/√min — room temperature barely moves between readings — so the estimate is very smooth.
+- The bias entities tell you which thermometer sits in the sun.
+
+## Coasting Through an Outage
+
+A BLE proxy drops, and the ring sensors go `unavailable` for twenty minutes:
+
+- The fused value keeps updating along its learned trend instead of going stale or unknown.
+- Only the affected **Bias** entities show `unavailable`.
+- When readings resume, they are accepted against the grown uncertainty and the estimate blends back in.
+
+Nothing to configure — this is what happens by default.
+
+## Automating a Reset After Hardware Changes
+
+If a replaced or re-calibrated sensor keeps an old learned bias, reset the instance:
 
 ```yaml
-type: glance
-title: Device Status
-entities:
-  - entity: binary_sensor.device_name_connectivity
-    name: Online
-  - entity: sensor.device_name_air_quality
-    name: Air Quality
-  - entity: binary_sensor.device_name_filter
-    name: Filter
-show_state: true
+automation:
+  - alias: "Re-seed fusion after battery swap"
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.ring_beta_charging
+        to: "on"
+    conditions:
+      - condition: numeric_state
+        entity_id: sensor.ring_beta_battery_level
+        below: 5
+    actions:
+      - action: button.press
+        target:
+          entity_id: button.rings_reset_fusion
 ```
 
-### History graph
+Pressing **Reset fusion** re-seeds from whatever the inputs read right now, so trigger it when the sensors are in a known-good state.
+
+## Comparing an Input Against the Fused Value
+
+A template-based sanity display of how far one raw sensor deviates right now:
 
 ```yaml
-type: history-graph
-title: Air Quality (last 24 h)
-entities:
-  - entity: sensor.device_name_air_quality
-hours_to_show: 24
+template:
+  - sensor:
+      - name: "Ring Alpha raw deviation"
+        unit_of_measurement: "bpm"
+        state: >
+          {{ (states('sensor.ring_alpha_heart_rate') | float(0)
+              - states('sensor.rings_fused_value') | float(0)) | round(1) }}
 ```
 
-## Related Documentation
+This differs from the bias entity (which is the filter's smoothed estimate) and is useful for spotting a sensor that jumped _today_.
 
-- [Configuration Reference](./CONFIGURATION.md) - All configuration options
-- [Getting Started](./GETTING_STARTED.md) - Installation and initial setup
-- [GitHub Issues](https://github.com/jpawlowski/ha-integration-blueprint/issues) - Report problems
+## Tuning Walkthrough
+
+| Observation                                             | Try                                                                           |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Estimate is a step behind a fast-rising value           | Raise **Signal volatility** (e.g. 2.0 → 5.0)                                  |
+| Estimate visibly jitters with every single reading      | Lower **Signal volatility**                                                   |
+| A sensor that was recalibrated drags the value for days | Lower **Bias adaptation** minutes, or press **Reset fusion**                  |
+| Bias entities hover at the configured maximum           | **Maximum expected bias** is too low for these sensors                        |
+| Estimate barely moves even when all sensors agree       | Too few updates yet — the filter needs to have seen each sensor at least once |
+
+Change one setting at a time and give it a few update cycles; the options apply live without losing learned state, so tuning is safe to experiment with.

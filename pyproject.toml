@@ -27,6 +27,10 @@ exclude = [
 # This works in VSCode (uses .local/ha-venv) and GitHub Actions (uses active venv)
 venvPath = ".local"
 venv = "ha-venv"
+# The venv is Linux-only, so a Windows host cannot infer its version or platform from it;
+# pin both to match requires-python, ruff target-version and the Linux dev container.
+pythonVersion = "3.14"
+pythonPlatform = "Linux"
 typeCheckingMode = "basic"
 reportUnusedImport = "none"
 reportUnusedVariable = "none"
